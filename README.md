@@ -38,59 +38,62 @@ Database (PostgreSQL via Prisma ORM)
 ⚬ Spreadsheet Processing: xlsx (SheetJS) / exceljs
 ⚬ Report Generation: HTML preview matching NBA formats, PDF/Excel export modules
 
-📊 Covered NBA Criteria 4 Tables & Formulas
+## 📊 Covered NBA Criteria 4 Tables & Formulas
 
 The core calculation service generates the following standard Criteria 4 tables:
 
-Section & Metric	Target Output Table	Description & Formula	Max Marks
-4.1 Enrolment Ratio	Table 4.4	\text{Enrolment Ratio} = \frac{N_1}{N} \times 100\% averaged over 3 CAY assessment years	20 Marks
-4.2.1 Success Rate (No Backlogs)	Table 4.2 & Table 4.5	\text{SI} = \frac{\text{Graduated Without Backlog}}{N_1 + N_2 + N_3}; \text{Marks} = 25 \times \text{Average SI} across LYG, LYGm1, LYGm2	25 Marks
-4.2.2 Success Rate (With Backlogs)	Table 4.3 & Table 4.6	\text{SI} = \frac{\text{Total Graduated}}{N_1 + N_2 + N_3}; \text{Marks} = 15 \times \text{Average SI} across 3 graduating batches	15 Marks
-4.3 Academic Performance (3rd Year)	Table 4.7	\text{API} = X \times \left(\frac{Y}{Z}\right); \text{Marks} = 1.5 \times \text{Average API}	15 Marks
-4.4 Academic Performance (2nd Year)	Table 4.8	\text{API} = X \times \left(\frac{Y}{Z}\right); \text{Marks} = 1.5 \times \text{Average API}	15 Marks
-4.5 Placements & Higher Studies	Table 4.9 & 4.5.a	\text{Placement Index} = \frac{x + y + z}{N}; \text{Marks} = 40 \times \text{Average Index}	40 Marks
-4.6 Professional Activities	Section 4.6	Student chapters, technical events, publications, and co-curricular awards	20 Marks
+| Section & Metric | Target Output Table | Description & Formula | Max Marks |
+|---|---|---|---:|
+| **4.1 Enrolment Ratio** | Table 4.4 | **Enrolment Ratio** = (N₁ / N) × 100%, averaged over 3 CAY assessment years | **20 Marks** |
+| **4.2.1 Success Rate (No Backlogs)** | Table 4.2 & Table 4.5 | **SI** = Graduated Without Backlog / (N₁ + N₂ + N₃); **Marks** = 25 × Average SI across LYG, LYGm1, LYGm2 | **25 Marks** |
+| **4.2.2 Success Rate (With Backlogs)** | Table 4.3 & Table 4.6 | **SI** = Total Graduated / (N₁ + N₂ + N₃); **Marks** = 15 × Average SI across 3 graduating batches | **15 Marks** |
+| **4.3 Academic Performance (3rd Year)** | Table 4.7 | **API** = X × (Y / Z); **Marks** = 1.5 × Average API | **15 Marks** |
+| **4.4 Academic Performance (2nd Year)** | Table 4.8 | **API** = X × (Y / Z); **Marks** = 1.5 × Average API | **15 Marks** |
+| **4.5 Placements & Higher Studies** | Table 4.9 & 4.5.a | **Placement Index** = (x + y + z) / N; **Marks** = 40 × Average Index | **40 Marks** |
+| **4.6 Professional Activities** | Section 4.6 | Student chapters, technical events, publications, and co-curricular awards | **20 Marks** |
 
-📂 Project Directory Structure
 
+## 📂 Project Directory Structure
+
+```text
 nba-criteria-4-automation/
 ├── prisma/
-│   ├── schema.prisma            # Database schema models & relationships
-│   └── seed.js                  # Realistic mock seed data for batches & students
+│   ├── schema.prisma
+│   └── seed.js
 ├── src/
-│   ├── components/              # Modular, reusable UI elements
-│   │   ├── AuditModal.jsx       # Click-to-verify student drill-down modal
-│   │   ├── FileUploader.jsx     # Drag-and-drop Excel file intake
-│   │   ├── Navbar.jsx           # Main navigation bar
-│   │   └── TableCard.jsx        # Standardized Criteria 4 display tables
-│   ├── services/                # Business logic & calculations (Pure JS)
-│   │   ├── excelParserService.js    # Spreadsheet ingestion & header mapping
-│   │   ├── nbaCalculationService.js # Deterministic NBA mathematical formulas
-│   │   ├── resultParserService.js   # Backlog & pass/fail detection rules
-│   │   └── studentService.js        # Prisma database query abstractions
-│   ├── store/                   # Redux slices / application state management
+│   ├── components/
+│   │   ├── AuditModal.jsx
+│   │   ├── FileUploader.jsx
+│   │   ├── Navbar.jsx
+│   │   └── TableCard.jsx
+│   ├── services/
+│   │   ├── excelParserService.js
+│   │   ├── nbaCalculationService.js
+│   │   ├── resultParserService.js
+│   │   └── studentService.js
+│   ├── store/
 │   │   ├── auditSlice.js
 │   │   ├── batchSlice.js
 │   │   └── index.js
-│   └── views/                   # Screen-level views
-│       ├── DashboardView.jsx    # System status & readiness metrics
-│       ├── PlacementView.jsx    # Final-year career outcomes & verification
-│       ├── ReportView.jsx       # Generated NBA Criteria 4 preview
-│       ├── StudentsView.jsx     # Student list & one-click batch promotion
-│       └── UploadView.jsx       # Multi-semester file upload & column mapping
+│   └── views/
+│       ├── DashboardView.jsx
+│       ├── PlacementView.jsx
+│       ├── ReportView.jsx
+│       ├── StudentsView.jsx
+│       └── UploadView.jsx
 ├── pages/
-│   ├── api/                     # Backend HTTP route handlers
+│   ├── api/
 │   │   ├── audit/
-│   │   │   └── students.js      # Student drill-down queries for audit
+│   │   │   └── students.js
 │   │   ├── batches/
-│   │   │   ├── index.js         # Batch management
-│   │   │   └── promote.js       # Bulk cohort promotion handler
+│   │   │   ├── index.js
+│   │   │   └── promote.js
 │   │   ├── calculate/
-│   │   │   └── criteria4.js     # Computed NBA metric aggregations
+│   │   │   └── criteria4.js
 │   │   ├── placements/
-│   │   │   └── upload.js        # Placement outcome ingestion
+│   │   │   └── upload.js
 │   │   └── upload/
-│   │       └── results.js       # Academic results spreadsheet intake
+│   │       └── results.js
 │   ├── _app.jsx
 │   ├── dashboard.jsx
 │   ├── index.jsx
@@ -102,6 +105,8 @@ nba-criteria-4-automation/
 ├── package.json
 ├── tailwind.config.js
 └── README.md
+```
+
 
 
 🗄️ Database Schema Summary
