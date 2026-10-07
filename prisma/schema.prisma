@@ -1,0 +1,79 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AdmissionType {
+  REGULAR
+  LATERAL_ENTRY
+}
+
+enum StudentStatus {
+  ENROLLED
+  DETAINED
+  MIGRATED_OUT
+  GRADUATED
+}
+
+enum OutcomeType {
+  PLACEMENT
+  HIGHER_STUDIES
+  ENTREPRENEURSHIP
+}
+
+model Batch {
+  id               String    @id @default(uuid())
+  batchCode        String    @unique // e.g., "2020-2024", "2021-2025"
+  admissionYear    Int       // e.g., 2020
+  graduationYear   Int       // e.g., 2024
+  sanctionedIntake Int       // N
+  regularAdmitted  Int       // N1
+  lateralAdmitted  Int       // N2
+  separateDivision Int       @default(0) // N3
+  students         Student[]
+  createdAt        DateTime  @default(now())
+}
+
+model Student {
+  id            String           @id @default(uuid())
+  rollNumber    String           @unique // e.g., "0832CS201001"
+  name          String
+  batchId       String
+  batch         Batch            @relation(fields: [batchId], references: [id])
+  admissionType AdmissionType    @default(REGULAR)
+  currentStatus StudentStatus    @default(ENROLLED)
+  results       SemesterResult[]
+  careerOutcome CareerOutcome?
+  createdAt     DateTime         @default(now())
+}
+
+model SemesterResult {
+  id            String  @id @default(uuid())
+  studentId     String
+  student       Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  semester      Int     // 1 to 8
+  rawResultText String  // "PASS", "Fail in BT102,CS303", "Not Appeared"
+  isPassed      Boolean @default(true)
+  hasBacklog    Boolean @default(false)
+  backlogCount  Int     @default(0)
+  sgpa          Float?
+  percentage    Float?
+  isCleared     Boolean @default(true) // cleared in reval/supplementary
+
+  @@unique([studentId, semester])
+}
+
+model CareerOutcome {
+  id             String      @id @default(uuid())
+  studentId      String      @unique
+  student        Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  outcomeType    OutcomeType
+  organization   String      // Employer name, University name, or Venture name
+  appointmentRef String?     // Appointment letter ref no. or exam ID
+  outcomeDate    String?     // Date of letter or admission
+  createdAt      DateTime    @default(now())
+}
