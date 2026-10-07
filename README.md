@@ -1,36 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+NBA Criteria 4 Automation System
 
-## Getting Started
+An end-to-end web platform designed to automate the manual compilation, calculation, and reporting process for NBA (National Board of Accreditation) Criteria 4: Students' Performance in Tier-II engineering institutions.
 
-First, run the development server:
+📌 Project Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Department faculty and accreditation coordinators traditionally spend weeks consolidating semester-wise spreadsheet files, determining academic backlog statuses, calculating complex statistical indices, and drafting final Criteria 4 compliance tables by hand.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This application introduces an automated processing pipeline between raw departmental spreadsheets and the final accreditation documentation:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+⚬ Multi-Semester Consolidation: Ingests separate semester-wise grade files and unifies them into an immutable student master record using the university enrollment number as a single source of truth.
+⚬ Deterministic Result Interpretation: Parses university result strings (e.g., PASS, Fail in CS501,CS502, Not Appeared) and evaluates "With Backlog" vs. "Without Backlog" classifications automatically.
+⚬ Mathematical Calculation Engine: Evaluates Enrolment Ratios (N_1/N), Success Rates without backlogs, Success Rates with backlogs, Academic Performance Indices (API), and Career Outcomes without manual calculation.
+⚬ Placement Cell Reconciliation: Ingests final-year outcome data (Placements, Higher Studies, Entrepreneurship) and links records to graduating cohorts.
+⚬ Auditability & Traceability: Allows evaluators to click on any calculated summary figure to view the exact student records and intermediate formula evaluations behind it.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+🏗️ Architecture & Technology Stack
 
-## Learn More
+The platform is organized around a strict layered architecture pattern:
 
-To learn more about Next.js, take a look at the following resources:
+Pages (Routing & Entry Points)
+  ↓
+Views (Screen-Level Orchestration & State)
+  ↓
+Components (Reusable Atomic UI Elements)
+  ↓
+API Routes (HTTP Handlers & Input Validation)
+  ↓
+Services (Deterministic Math, Excel Parsing & DB Operations)
+  ↓
+Database (PostgreSQL via Prisma ORM)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+⚬ Frontend: Next.js (React / JavaScript), Tailwind CSS, Lucide React
+⚬ State Management: Redux Toolkit / React Hooks for server-state orchestration
+⚬ Backend: Next.js API Routes (Node.js runtime)
+⚬ Database & ORM: PostgreSQL, Prisma ORM
+⚬ Spreadsheet Processing: xlsx (SheetJS) / exceljs
+⚬ Report Generation: HTML preview matching NBA formats, PDF/Excel export modules
 
-## Deploy on Vercel
+📊 Covered NBA Criteria 4 Tables & Formulas
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The core calculation service generates the following standard Criteria 4 tables:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Section & Metric	Target Output Table	Description & Formula	Max Marks
+4.1 Enrolment Ratio	Table 4.4	\text{Enrolment Ratio} = \frac{N_1}{N} \times 100\% averaged over 3 CAY assessment years	20 Marks
+4.2.1 Success Rate (No Backlogs)	Table 4.2 & Table 4.5	\text{SI} = \frac{\text{Graduated Without Backlog}}{N_1 + N_2 + N_3}; \text{Marks} = 25 \times \text{Average SI} across LYG, LYGm1, LYGm2	25 Marks
+4.2.2 Success Rate (With Backlogs)	Table 4.3 & Table 4.6	\text{SI} = \frac{\text{Total Graduated}}{N_1 + N_2 + N_3}; \text{Marks} = 15 \times \text{Average SI} across 3 graduating batches	15 Marks
+4.3 Academic Performance (3rd Year)	Table 4.7	\text{API} = X \times \left(\frac{Y}{Z}\right); \text{Marks} = 1.5 \times \text{Average API}	15 Marks
+4.4 Academic Performance (2nd Year)	Table 4.8	\text{API} = X \times \left(\frac{Y}{Z}\right); \text{Marks} = 1.5 \times \text{Average API}	15 Marks
+4.5 Placements & Higher Studies	Table 4.9 & 4.5.a	\text{Placement Index} = \frac{x + y + z}{N}; \text{Marks} = 40 \times \text{Average Index}	40 Marks
+4.6 Professional Activities	Section 4.6	Student chapters, technical events, publications, and co-curricular awards	20 Marks
+
+📂 Project Directory Structure
+
+nba-criteria-4-automation/
+├── prisma/
+│   ├── schema.prisma            # Database schema models & relationships
+│   └── seed.js                  # Realistic mock seed data for batches & students
+├── src/
+│   ├── components/              # Modular, reusable UI elements
+│   │   ├── AuditModal.jsx       # Click-to-verify student drill-down modal
+│   │   ├── FileUploader.jsx     # Drag-and-drop Excel file intake
+│   │   ├── Navbar.jsx           # Main navigation bar
+│   │   └── TableCard.jsx        # Standardized Criteria 4 display tables
+│   ├── services/                # Business logic & calculations (Pure JS)
+│   │   ├── excelParserService.js    # Spreadsheet ingestion & header mapping
+│   │   ├── nbaCalculationService.js # Deterministic NBA mathematical formulas
+│   │   ├── resultParserService.js   # Backlog & pass/fail detection rules
+│   │   └── studentService.js        # Prisma database query abstractions
+│   ├── store/                   # Redux slices / application state management
+│   │   ├── auditSlice.js
+│   │   ├── batchSlice.js
+│   │   └── index.js
+│   └── views/                   # Screen-level views
+│       ├── DashboardView.jsx    # System status & readiness metrics
+│       ├── PlacementView.jsx    # Final-year career outcomes & verification
+│       ├── ReportView.jsx       # Generated NBA Criteria 4 preview
+│       ├── StudentsView.jsx     # Student list & one-click batch promotion
+│       └── UploadView.jsx       # Multi-semester file upload & column mapping
+├── pages/
+│   ├── api/                     # Backend HTTP route handlers
+│   │   ├── audit/
+│   │   │   └── students.js      # Student drill-down queries for audit
+│   │   ├── batches/
+│   │   │   ├── index.js         # Batch management
+│   │   │   └── promote.js       # Bulk cohort promotion handler
+│   │   ├── calculate/
+│   │   │   └── criteria4.js     # Computed NBA metric aggregations
+│   │   ├── placements/
+│   │   │   └── upload.js        # Placement outcome ingestion
+│   │   └── upload/
+│   │       └── results.js       # Academic results spreadsheet intake
+│   ├── _app.jsx
+│   ├── dashboard.jsx
+│   ├── index.jsx
+│   ├── placements.jsx
+│   ├── report.jsx
+│   ├── students.jsx
+│   └── upload.jsx
+├── .env.example
+├── package.json
+├── tailwind.config.js
+└── README.md
+
+
+🗄️ Database Schema Summary
+
+The database uses an append-only result log rather than overwriting student rows across academic years:
+
+1. Batch: Defines the 4-year cycle along with sanctioned intake (N), first-year intake (N_1), and lateral intake (N_2).
+2. Student: Holds permanent personal records (rollNumber, name, admissionType: REGULAR | LATERAL_ENTRY, batchId).
+3. SemesterResult: Stores individual semester performances (semester: 1..8, rawResultText, isPassed, hasBacklog, backlogCount, sgpa, isCleared).
+4. CareerOutcome: Stores final-year outcomes (outcomeType: PLACEMENT | HIGHER_STUDIES | ENTREPRENEURSHIP, organization, appointmentRef, outcomeDate).
+
+🚀 Getting Started
+
+Prerequisites
+
+⚬ Node.js (v18.x or later)
+⚬ PostgreSQL database instance
+⚬ npm, yarn, or pnpm
+
+Installation & Setup
+
+1. Clone the repository:
+   git clone https://github.com/your-username/nba-criteria-4-automation.git
+   cd nba-criteria-4-automation
+   
+2. Install dependencies:
+   npm install
+   
+3. Configure environment variables:
+   Create a .env file in the root directory:
+   DATABASE_URL="postgresql://username:password@localhost:5432/nba_criteria4_db?schema=public"
+   
+4. Initialize database schema and seed mock data:
+   npx prisma db push
+   node prisma/seed.js
+   
+5. Start the local development server:
+   npm run dev
+   
+   Open http://localhost:3000 in your browser.
+
+🧪 Testing & Verification
+
+⚬ Run unit tests for deterministic metric calculations:
+  npm test
+  
+⚬ Open the Report View and click on any summary count (such as Graduated without backlog) to verify that the Audit Modal returns the correct list of contributing students.
