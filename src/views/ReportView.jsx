@@ -65,6 +65,7 @@ export default function ReportView() {
   }
 
   const { report, batches } = reportData;
+  const eligibleGradBatches = batches.filter(b => b.isGraduated || b.totalGraduated > 0);
 
   const ClickableValue = ({ value, metric, batchId, title }) => (
     <button
@@ -133,7 +134,7 @@ export default function ReportView() {
                   <td>{b.lateralAdmitted}</td>
                   <td>{b.separateDivision}</td>
                   <td>
-                    <ClickableValue value={b.totalStudents} metric="enrolled" batchId={b.batchId} title={`Enrolled — ${b.batchCode}`} />
+                    <ClickableValue value={b.totalIntake ?? b.totalStudents} metric="enrolled" batchId={b.batchId} title={`Total Intake / Enrolled — ${b.batchCode}`} />
                   </td>
                 </tr>
               ))}
@@ -162,12 +163,13 @@ export default function ReportView() {
             </thead>
             <tbody>
               {batches.map(b => {
+                const isGrad = b.isGraduated || b.totalGraduated > 0;
                 const withBacklog = b.totalGraduated - b.graduatedWithoutBacklog;
-                const notGrad = b.totalStudents - b.totalGraduated;
+                const notGrad = isGrad ? ((b.totalIntake ?? b.totalStudents) - b.totalGraduated) : null;
                 return (
                   <tr key={b.batchId}>
                     <td className="font-medium text-primary-400">{b.batchCode}</td>
-                    <td>{b.totalStudents}</td>
+                    <td>{b.totalIntake ?? b.totalStudents}</td>
                     <td>
                       <ClickableValue value={b.graduatedWithoutBacklog} metric="graduated_without_backlog" batchId={b.batchId} title={`Without Backlog — ${b.batchCode}`} />
                     </td>
@@ -177,7 +179,13 @@ export default function ReportView() {
                     <td>
                       <ClickableValue value={withBacklog} metric="graduated_with_backlog" batchId={b.batchId} title={`With Backlog — ${b.batchCode}`} />
                     </td>
-                    <td className={notGrad > 0 ? 'text-danger-400' : 'text-surface-400'}>{notGrad}</td>
+                    <td>
+                      {isGrad ? (
+                        <span className={notGrad > 0 ? 'text-danger-400' : 'text-surface-400'}>{notGrad}</span>
+                      ) : (
+                        <span className="text-xs text-surface-500 italic">In Progress</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -210,9 +218,20 @@ export default function ReportView() {
               </tr>
             </thead>
             <tbody>
-              {batches.map(b => (
+              {batches.map((b, idx) => (
                 <tr key={b.batchId}>
-                  <td className="text-primary-400">{b.batchCode}</td>
+                  <td className="text-primary-400">
+                    {b.batchCode}
+                    {idx < 3 ? (
+                      <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-300 font-medium">
+                        {idx === 0 ? 'CAY' : `CAYm${idx}`}
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-surface-400 font-medium">
+                        Intake Baseline
+                      </span>
+                    )}
+                  </td>
                   <td>{b.regularAdmitted}</td>
                   <td>{b.sanctionedIntake}</td>
                   <td className="font-semibold text-accent-400">
@@ -253,20 +272,26 @@ export default function ReportView() {
               </tr>
             </thead>
             <tbody>
-              {batches.map((b, i) => {
-                const denom = b.regularAdmitted + b.lateralAdmitted + b.separateDivision;
-                const si = denom > 0 ? (b.graduatedWithoutBacklog / denom) : 0;
-                return (
-                  <tr key={b.batchId}>
-                    <td className="text-primary-400">{b.batchCode}</td>
-                    <td>
-                      <ClickableValue value={b.graduatedWithoutBacklog} metric="graduated_without_backlog" batchId={b.batchId} title={`Without Backlog — ${b.batchCode}`} />
-                    </td>
-                    <td>{denom}</td>
-                    <td className="font-semibold text-accent-400">{si.toFixed(4)}</td>
-                  </tr>
-                );
-              })}
+              {eligibleGradBatches.length > 0 ? (
+                eligibleGradBatches.map(b => {
+                  const denom = b.regularAdmitted + b.lateralAdmitted + b.separateDivision;
+                  const si = denom > 0 ? (b.graduatedWithoutBacklog / denom) : 0;
+                  return (
+                    <tr key={b.batchId}>
+                      <td className="text-primary-400">{b.batchCode}</td>
+                      <td>
+                        <ClickableValue value={b.graduatedWithoutBacklog} metric="graduated_without_backlog" batchId={b.batchId} title={`Without Backlog — ${b.batchCode}`} />
+                      </td>
+                      <td>{denom}</td>
+                      <td className="font-semibold text-accent-400">{si.toFixed(4)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={4} className="text-center py-4 text-surface-400 text-sm">No graduated cohorts yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -300,20 +325,26 @@ export default function ReportView() {
               </tr>
             </thead>
             <tbody>
-              {batches.map(b => {
-                const denom = b.regularAdmitted + b.lateralAdmitted + b.separateDivision;
-                const si = denom > 0 ? (b.totalGraduated / denom) : 0;
-                return (
-                  <tr key={b.batchId}>
-                    <td className="text-primary-400">{b.batchCode}</td>
-                    <td>
-                      <ClickableValue value={b.totalGraduated} metric="total_graduated" batchId={b.batchId} title={`Total Graduated — ${b.batchCode}`} />
-                    </td>
-                    <td>{denom}</td>
-                    <td className="font-semibold text-accent-400">{si.toFixed(4)}</td>
-                  </tr>
-                );
-              })}
+              {eligibleGradBatches.length > 0 ? (
+                eligibleGradBatches.map(b => {
+                  const denom = b.regularAdmitted + b.lateralAdmitted + b.separateDivision;
+                  const si = denom > 0 ? (b.totalGraduated / denom) : 0;
+                  return (
+                    <tr key={b.batchId}>
+                      <td className="text-primary-400">{b.batchCode}</td>
+                      <td>
+                        <ClickableValue value={b.totalGraduated} metric="total_graduated" batchId={b.batchId} title={`Total Graduated — ${b.batchCode}`} />
+                      </td>
+                      <td>{denom}</td>
+                      <td className="font-semibold text-accent-400">{si.toFixed(4)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={4} className="text-center py-4 text-surface-400 text-sm">No graduated cohorts yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -322,19 +353,105 @@ export default function ReportView() {
       {/* ─── Tables 4.7 & 4.8 — Academic Performance ───────────── */}
       <section>
         <h2 className="text-lg font-semibold text-white mb-3">Tables 4.7 & 4.8 — Academic Performance Index</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="glass-card p-6">
-            <p className="text-xs text-surface-500 mb-2">2nd Year API</p>
-            <p className="text-sm text-surface-300 font-mono mb-3">API = X × (Y / Z)</p>
-            <p className="text-3xl font-bold text-primary-300">{report.academicPerformance2ndYear.marks.toFixed(2)}</p>
-            <p className="text-xs text-surface-500 mt-1">Performance = 1.5 × Avg API</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div className="glass-card p-6 animated-border">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-surface-500 font-medium">Table 4.7 — 2nd Year API</p>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-300 font-semibold">
+                Avg API: {report.academicPerformance2ndYear.avgAPI ? report.academicPerformance2ndYear.avgAPI.toFixed(2) : '0.00'}
+              </span>
+            </div>
+            <p className="text-xs text-surface-400 font-mono mb-2">API = X × (Y / Z) • Performance = 1.5 × Avg API</p>
+            <p className="text-3xl font-bold text-primary-300">
+              {report.academicPerformance2ndYear.marks.toFixed(2)} <span className="text-sm text-surface-500">/ 15</span>
+            </p>
           </div>
-          <div className="glass-card p-6">
-            <p className="text-xs text-surface-500 mb-2">3rd Year API</p>
-            <p className="text-sm text-surface-300 font-mono mb-3">API = X × (Y / Z)</p>
-            <p className="text-3xl font-bold text-primary-300">{report.academicPerformance3rdYear.marks.toFixed(2)}</p>
-            <p className="text-xs text-surface-500 mt-1">Performance = 1.5 × Avg API</p>
+          <div className="glass-card p-6 animated-border">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-surface-500 font-medium">Table 4.8 — 3rd Year API</p>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-accent-500/20 text-accent-300 font-semibold">
+                Avg API: {report.academicPerformance3rdYear.avgAPI ? report.academicPerformance3rdYear.avgAPI.toFixed(2) : '0.00'}
+              </span>
+            </div>
+            <p className="text-xs text-surface-400 font-mono mb-2">API = X × (Y / Z) • Performance = 1.5 × Avg API</p>
+            <p className="text-3xl font-bold text-accent-300">
+              {report.academicPerformance3rdYear.marks.toFixed(2)} <span className="text-sm text-surface-500">/ 15</span>
+            </p>
           </div>
+        </div>
+
+        {/* Table 4.7 Breakdown */}
+        <div className="glass-card overflow-hidden mb-4">
+          <div className="p-4 border-b border-white/5">
+            <h3 className="text-sm font-semibold text-surface-200">Table 4.7: Academic Performance in Second Year (Semesters 3 & 4)</h3>
+          </div>
+          <table className="nba-table">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Academic Year</th>
+                <th>Mean SGPA (X)</th>
+                <th>Successful Students (Y)</th>
+                <th>Appeared Students (Z)</th>
+                <th>API = X × (Y / Z)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batches.filter(b => b.api2ndYear && b.api2ndYear.Z > 0).length > 0 ? (
+                batches.filter(b => b.api2ndYear && b.api2ndYear.Z > 0).map(b => (
+                  <tr key={`2nd-${b.batchId}`}>
+                    <td className="text-primary-400 font-medium">{b.batchCode}</td>
+                    <td className="text-surface-300">{b.admissionYear + 1}–{b.admissionYear + 2}</td>
+                    <td className="font-semibold text-surface-200">{b.api2ndYear.X.toFixed(2)}</td>
+                    <td>{b.api2ndYear.Y}</td>
+                    <td>{b.api2ndYear.Z}</td>
+                    <td className="font-semibold text-accent-400">{b.api2ndYear.api.toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-surface-400 text-sm">No 2nd-year results recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table 4.8 Breakdown */}
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-white/5">
+            <h3 className="text-sm font-semibold text-surface-200">Table 4.8: Academic Performance in Third Year (Semesters 5 & 6)</h3>
+          </div>
+          <table className="nba-table">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Academic Year</th>
+                <th>Mean SGPA (X)</th>
+                <th>Successful Students (Y)</th>
+                <th>Appeared Students (Z)</th>
+                <th>API = X × (Y / Z)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batches.filter(b => b.api3rdYear && b.api3rdYear.Z > 0).length > 0 ? (
+                batches.filter(b => b.api3rdYear && b.api3rdYear.Z > 0).map(b => (
+                  <tr key={`3rd-${b.batchId}`}>
+                    <td className="text-primary-400 font-medium">{b.batchCode}</td>
+                    <td className="text-surface-300">{b.admissionYear + 2}–{b.admissionYear + 3}</td>
+                    <td className="font-semibold text-surface-200">{b.api3rdYear.X.toFixed(2)}</td>
+                    <td>{b.api3rdYear.Y}</td>
+                    <td>{b.api3rdYear.Z}</td>
+                    <td className="font-semibold text-accent-400">{b.api3rdYear.api.toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-surface-400 text-sm">No 3rd-year results recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -368,27 +485,33 @@ export default function ReportView() {
               </tr>
             </thead>
             <tbody>
-              {batches.map(b => {
-                if (!b.placementData) return null;
-                const { placed, higherStudies, entrepreneurs, totalFinalYear } = b.placementData;
-                const pi = totalFinalYear > 0 ? ((placed + higherStudies + entrepreneurs) / totalFinalYear) : 0;
-                return (
-                  <tr key={b.batchId}>
-                    <td className="text-primary-400">{b.batchCode}</td>
-                    <td>
-                      <ClickableValue value={placed} metric="placed" batchId={b.batchId} title={`Placed — ${b.batchCode}`} />
-                    </td>
-                    <td>
-                      <ClickableValue value={higherStudies} metric="higher_studies" batchId={b.batchId} title={`Higher Studies — ${b.batchCode}`} />
-                    </td>
-                    <td>
-                      <ClickableValue value={entrepreneurs} metric="entrepreneurs" batchId={b.batchId} title={`Entrepreneurs — ${b.batchCode}`} />
-                    </td>
-                    <td>{totalFinalYear}</td>
-                    <td className="font-semibold text-accent-400">{pi.toFixed(4)}</td>
-                  </tr>
-                );
-              })}
+              {eligibleGradBatches.length > 0 ? (
+                eligibleGradBatches.map(b => {
+                  if (!b.placementData) return null;
+                  const { placed, higherStudies, entrepreneurs, totalFinalYear } = b.placementData;
+                  const pi = totalFinalYear > 0 ? ((placed + higherStudies + entrepreneurs) / totalFinalYear) : 0;
+                  return (
+                    <tr key={b.batchId}>
+                      <td className="text-primary-400">{b.batchCode}</td>
+                      <td>
+                        <ClickableValue value={placed} metric="placed" batchId={b.batchId} title={`Placed — ${b.batchCode}`} />
+                      </td>
+                      <td>
+                        <ClickableValue value={higherStudies} metric="higher_studies" batchId={b.batchId} title={`Higher Studies — ${b.batchCode}`} />
+                      </td>
+                      <td>
+                        <ClickableValue value={entrepreneurs} metric="entrepreneurs" batchId={b.batchId} title={`Entrepreneurs — ${b.batchCode}`} />
+                      </td>
+                      <td>{totalFinalYear}</td>
+                      <td className="font-semibold text-accent-400">{pi.toFixed(4)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-surface-400 text-sm">No graduated cohorts with placement records yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

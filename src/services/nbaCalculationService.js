@@ -150,45 +150,57 @@ function computeFullReport(batchData) {
       enrolmentRatio: 0,
       successWithoutBacklog: { indices: [], marks: 0 },
       successWithBacklog: { indices: [], marks: 0 },
-      academicPerformance2ndYear: { apis: [], marks: 0 },
-      academicPerformance3rdYear: { apis: [], marks: 0 },
+      academicPerformance2ndYear: { apis: [], avgAPI: 0, marks: 0 },
+      academicPerformance3rdYear: { apis: [], avgAPI: 0, marks: 0 },
       placement: { indices: [], marks: 0 },
+      eligibleGradBatchIds: [],
     };
   }
 
-  // Enrolment Ratio (Table 4.4)
-  const enrolmentBatches = batchData.map(b => ({ N1: b.regularAdmitted, N: b.sanctionedIntake }));
-  const enrolmentRatio = averageEnrolmentRatio(enrolmentBatches);
+  // Sort batches descending by admissionYear (CAY, CAYm1, CAYm2, CAYm3, ...)
+  const sortedBatches = [...batchData].sort((a, b) => b.admissionYear - a.admissionYear);
 
-  // Success Without Backlog (Table 4.5)
-  const siWithout = batchData
-    .filter(b => b.graduatedWithoutBacklog !== undefined)
+  // Table 4.4 — Enrolment Ratio: 3-year running average evaluated strictly across top 3 assessment years (CAY, CAYm1, CAYm2)
+  const assessmentBatches = sortedBatches.slice(0, 3).map(b => ({
+    N1: b.regularAdmitted,
+    N: b.sanctionedIntake,
+  }));
+  const enrolmentRatio = averageEnrolmentRatio(assessmentBatches);
+
+  // Isolate completed graduating cohorts (LYG, LYGm1, LYGm2)
+  // A batch is eligible for graduation/placement tables if it has completed 8 semesters (status === 'GRADUATED' or totalGraduated > 0)
+  const graduatedBatches = sortedBatches.filter(b => b.isGraduated || b.totalGraduated > 0);
+  const eligibleGradBatches = graduatedBatches.slice(0, 3);
+
+  // Success Without Backlog (Table 4.5) — evaluated strictly over eligible graduated cohorts
+  const siWithout = eligibleGradBatches
     .map(b => computeSuccessIndexWithoutBacklog(
       b.graduatedWithoutBacklog, b.regularAdmitted, b.lateralAdmitted, b.separateDivision
     ));
   const marksWithout = marksSuccessWithoutBacklog(siWithout);
 
-  // Success With Backlog (Table 4.6)
-  const siWith = batchData
-    .filter(b => b.totalGraduated !== undefined)
+  // Success With Backlog (Table 4.6) — evaluated strictly over eligible graduated cohorts
+  const siWith = eligibleGradBatches
     .map(b => computeSuccessIndexWithBacklog(
       b.totalGraduated, b.regularAdmitted, b.lateralAdmitted, b.separateDivision
     ));
   const marksWith = marksSuccessWithBacklog(siWith);
 
   // Academic Performance (Tables 4.7 & 4.8)
-  const api2nd = batchData
-    .filter(b => b.api2ndYear)
-    .map(b => computeAcademicPerformanceIndex(b.api2ndYear.X, b.api2ndYear.Y, b.api2ndYear.Z));
-  const marks2nd = marksAcademicPerformance(api2nd);
+  // 2nd-Year API Evaluation: top 3 batches with valid 2nd year results (CAYm1, CAYm2, CAYm3)
+  const batches2nd = sortedBatches.filter(b => b.api2ndYear && b.api2ndYear.Z > 0).slice(0, 3);
+  const api2nd = batches2nd.map(b => computeAcademicPerformanceIndex(b.api2ndYear.X, b.api2ndYear.Y, b.api2ndYear.Z));
+  const avgAPI2nd = api2nd.length > 0 ? api2nd.reduce((a, b) => a + b, 0) / api2nd.length : 0;
+  const marks2nd = 1.5 * avgAPI2nd;
 
-  const api3rd = batchData
-    .filter(b => b.api3rdYear)
-    .map(b => computeAcademicPerformanceIndex(b.api3rdYear.X, b.api3rdYear.Y, b.api3rdYear.Z));
-  const marks3rd = marksAcademicPerformance(api3rd);
+  // 3rd-Year API Evaluation: batches with valid 3rd year results (CAYm1, CAYm2)
+  const batches3rd = sortedBatches.filter(b => b.api3rdYear && b.api3rdYear.Z > 0).slice(0, 3);
+  const api3rd = batches3rd.map(b => computeAcademicPerformanceIndex(b.api3rdYear.X, b.api3rdYear.Y, b.api3rdYear.Z));
+  const avgAPI3rd = api3rd.length > 0 ? api3rd.reduce((a, b) => a + b, 0) / api3rd.length : 0;
+  const marks3rd = 1.5 * avgAPI3rd;
 
-  // Placement (Table 4.9)
-  const pi = batchData
+  // Placement (Table 4.9) — evaluated strictly over eligible graduated cohorts
+  const pi = eligibleGradBatches
     .filter(b => b.placementData)
     .map(b => computePlacementIndex(
       b.placementData.placed, b.placementData.higherStudies,
@@ -200,9 +212,18 @@ function computeFullReport(batchData) {
     enrolmentRatio: Math.round(enrolmentRatio * 100) / 100,
     successWithoutBacklog: { indices: siWithout, marks: Math.round(marksWithout * 100) / 100 },
     successWithBacklog: { indices: siWith, marks: Math.round(marksWith * 100) / 100 },
-    academicPerformance2ndYear: { apis: api2nd, marks: Math.round(marks2nd * 100) / 100 },
-    academicPerformance3rdYear: { apis: api3rd, marks: Math.round(marks3rd * 100) / 100 },
+    academicPerformance2ndYear: {
+      apis: api2nd,
+      avgAPI: Math.round(avgAPI2nd * 100) / 100,
+      marks: Math.round(marks2nd * 100) / 100,
+    },
+    academicPerformance3rdYear: {
+      apis: api3rd,
+      avgAPI: Math.round(avgAPI3rd * 100) / 100,
+      marks: Math.round(marks3rd * 100) / 100,
+    },
     placement: { indices: pi, marks: Math.round(marksP * 100) / 100 },
+    eligibleGradBatchIds: eligibleGradBatches.map(b => b.batchId),
   };
 }
 

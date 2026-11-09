@@ -3,7 +3,7 @@
  * Encapsulates all Prisma queries for batches, students, results, and career outcomes.
  * Used by API routes — keeps database logic out of HTTP handlers.
  */
-import prisma from './prismaClient';
+import prisma from './prismaClient.js';
 
 // ─── Batch Queries ──────────────────────────────────────────────
 export async function getAllBatches() {
@@ -111,7 +111,8 @@ export async function getBatchMetrics(batchId) {
   if (!batch) return null;
 
   const students = batch.students;
-  const totalStudents = students.length;
+  const studentCount = students.length;
+  const totalIntake = (batch.regularAdmitted || 0) + (batch.lateralAdmitted || 0) + (batch.separateDivision || 0);
 
   // Graduated students
   const graduated = students.filter(s => s.currentStatus === 'GRADUATED');
@@ -127,10 +128,77 @@ export async function getBatchMetrics(batchId) {
   const higherStudies = students.filter(s => s.careerOutcome?.outcomeType === 'HIGHER_STUDIES').length;
   const entrepreneurs = students.filter(s => s.careerOutcome?.outcomeType === 'ENTREPRENEURSHIP').length;
 
-  // Final year students count
+  // Final year students count (eligible for placement)
+  // For graduated cohorts, count students who reached final year and graduated/completed
   const finalYearStudents = students.filter(s =>
-    s.currentStatus === 'GRADUATED' || s.currentStatus === 'ENROLLED'
+    s.currentStatus === 'GRADUATED' || (s.currentStatus === 'ENROLLED' && s.results.some(r => r.semester >= 7))
   ).length;
+
+  const isGraduated = totalGraduated > 0;
+
+  // ─── 2nd-Year API Inputs (Semesters 3 & 4) ───────────────────────
+  const appeared2ndYear = students.filter(s => {
+    const sem3 = s.results.find(r => r.semester === 3);
+    const sem4 = s.results.find(r => r.semester === 4);
+    return sem3 && sem4;
+  });
+  const Z_2nd = appeared2ndYear.length;
+
+  const successful2ndYear = appeared2ndYear.filter(s => {
+    const sem3 = s.results.find(r => r.semester === 3);
+    const sem4 = s.results.find(r => r.semester === 4);
+    return sem3.isPassed && !sem3.hasBacklog && sem4.isPassed && !sem4.hasBacklog;
+  });
+  const Y_2nd = successful2ndYear.length;
+
+  let X_2nd = 0;
+  if (Y_2nd > 0) {
+    const totalSGPA = successful2ndYear.reduce((acc, s) => {
+      const sem3 = s.results.find(r => r.semester === 3);
+      const sem4 = s.results.find(r => r.semester === 4);
+      const avgStudentSGPA = ((sem3.sgpa || 0) + (sem4.sgpa || 0)) / 2;
+      return acc + avgStudentSGPA;
+    }, 0);
+    X_2nd = Math.round((totalSGPA / Y_2nd) * 100) / 100;
+  }
+  const api2ndYear = Z_2nd > 0 ? {
+    X: X_2nd,
+    Y: Y_2nd,
+    Z: Z_2nd,
+    api: Math.round(X_2nd * (Y_2nd / Z_2nd) * 100) / 100,
+  } : null;
+
+  // ─── 3rd-Year API Inputs (Semesters 5 & 6) ───────────────────────
+  const appeared3rdYear = students.filter(s => {
+    const sem5 = s.results.find(r => r.semester === 5);
+    const sem6 = s.results.find(r => r.semester === 6);
+    return sem5 && sem6;
+  });
+  const Z_3rd = appeared3rdYear.length;
+
+  const successful3rdYear = appeared3rdYear.filter(s => {
+    const sem5 = s.results.find(r => r.semester === 5);
+    const sem6 = s.results.find(r => r.semester === 6);
+    return sem5.isPassed && !sem5.hasBacklog && sem6.isPassed && !sem6.hasBacklog;
+  });
+  const Y_3rd = successful3rdYear.length;
+
+  let X_3rd = 0;
+  if (Y_3rd > 0) {
+    const totalSGPA = successful3rdYear.reduce((acc, s) => {
+      const sem5 = s.results.find(r => r.semester === 5);
+      const sem6 = s.results.find(r => r.semester === 6);
+      const avgStudentSGPA = ((sem5.sgpa || 0) + (sem6.sgpa || 0)) / 2;
+      return acc + avgStudentSGPA;
+    }, 0);
+    X_3rd = Math.round((totalSGPA / Y_3rd) * 100) / 100;
+  }
+  const api3rdYear = Z_3rd > 0 ? {
+    X: X_3rd,
+    Y: Y_3rd,
+    Z: Z_3rd,
+    api: Math.round(X_3rd * (Y_3rd / Z_3rd) * 100) / 100,
+  } : null;
 
   return {
     batchId: batch.id,
@@ -141,14 +209,19 @@ export async function getBatchMetrics(batchId) {
     regularAdmitted: batch.regularAdmitted,
     lateralAdmitted: batch.lateralAdmitted,
     separateDivision: batch.separateDivision,
-    totalStudents,
+    totalIntake,
+    totalStudents: totalIntake,
+    studentCount,
+    isGraduated,
     totalGraduated,
     graduatedWithoutBacklog,
+    api2ndYear,
+    api3rdYear,
     placementData: {
       placed,
       higherStudies,
       entrepreneurs,
-      totalFinalYear: finalYearStudents,
+      totalFinalYear: isGraduated ? finalYearStudents : 0,
     },
   };
 }
@@ -193,7 +266,7 @@ export async function getAuditStudents({ metric, batchId }) {
       return batch.students.filter(s => s.careerOutcome?.outcomeType === 'ENTREPRENEURSHIP');
 
     case 'enrolled':
-      return batch.students.filter(s => s.currentStatus === 'ENROLLED');
+      return batch.students;
 
     case 'detained':
       return batch.students.filter(s => s.currentStatus === 'DETAINED');

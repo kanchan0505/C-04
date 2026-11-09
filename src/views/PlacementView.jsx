@@ -43,8 +43,24 @@ export default function PlacementView() {
   }, []);
 
   useEffect(() => {
-    if (selectedBatch) fetchPlacements(selectedBatch);
-  }, [selectedBatch, fetchPlacements]);
+    let ignore = false;
+    if (selectedBatch) {
+      fetch(`/api/placement?batchId=${selectedBatch}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!ignore) setPlacements(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          if (!ignore) setPlacements([]);
+        })
+        .finally(() => {
+          if (!ignore) setLoading(false);
+        });
+    } else {
+      queueMicrotask(() => setPlacements([]));
+    }
+    return () => { ignore = true; };
+  }, [selectedBatch]);
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
